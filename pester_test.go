@@ -20,9 +20,10 @@ import (
 func TestConcurrentRequests(t *testing.T) {
 	t.Parallel()
 
-	c := New()
-	c.Concurrency = 3
-	c.KeepLog = true
+	cf := NewDefaultConfig()
+	cf.Concurrency = 3
+	cf.KeepLog = true
+	c := New(cf, nil)
 
 	nonExistantURL := "http://localhost:9000/foo"
 
@@ -35,7 +36,7 @@ func TestConcurrentRequests(t *testing.T) {
 	// in the event of an error, let's see what the logs were
 	t.Log("\n", c.LogString())
 
-	if got, want := c.LogErrCount(), c.Concurrency*c.MaxRetries; got != want {
+	if got, want := c.LogErrCount(), cf.Concurrency*cf.MaxRetries; got != want {
 		t.Errorf("got %d attempts, want %d", got, want)
 	}
 }
@@ -43,9 +44,10 @@ func TestConcurrentRequests(t *testing.T) {
 func TestConcurrentRequestsWith429DefaultClient(t *testing.T) {
 	t.Parallel()
 
-	c := New()
-	c.Concurrency = 3
-	c.KeepLog = true
+	cf := NewDefaultConfig()
+	cf.Concurrency = 3
+	cf.KeepLog = true
+	c := New(cf, nil)
 
 	port, err := serverWith429()
 	if err != nil {
@@ -74,9 +76,10 @@ func TestConcurrentRequestsWith429DefaultClient(t *testing.T) {
 func TestConcurrentRequestsWith400(t *testing.T) {
 	t.Parallel()
 
-	c := New()
-	c.Concurrency = 3
-	c.KeepLog = true
+	cf := NewDefaultConfig()
+	cf.Concurrency = 3
+	cf.KeepLog = true
+	c := New(cf, nil)
 	c.SetRetryOnHTTP429(true)
 
 	port, err := serverWith400()
@@ -106,9 +109,10 @@ func TestConcurrentRequestsWith400(t *testing.T) {
 func TestConcurrentRequestsWith429(t *testing.T) {
 	t.Parallel()
 
-	c := New()
-	c.Concurrency = 3
-	c.KeepLog = true
+	cf := NewDefaultConfig()
+	cf.Concurrency = 3
+	cf.KeepLog = true
+	c := New(cf, nil)
 	c.SetRetryOnHTTP429(true)
 
 	port, err := serverWith429()
@@ -130,7 +134,7 @@ func TestConcurrentRequestsWith429(t *testing.T) {
 	// in the event of an error, let's see what the logs were
 	t.Log("\n", c.LogString())
 
-	if got, want := c.LogErrCount(), c.Concurrency*c.MaxRetries; got != want {
+	if got, want := c.LogErrCount(), cf.Concurrency*cf.MaxRetries; got != want {
 		t.Errorf("got %d attempts, want %d", got, want)
 	}
 }
@@ -138,10 +142,11 @@ func TestConcurrentRequestsWith429(t *testing.T) {
 func TestMaxRetriesConcurrentRequestsWith429DefaultClient(t *testing.T) {
 	t.Parallel()
 
-	c := New()
-	c.Concurrency = 3
-	c.KeepLog = true
-	c.MaxRetries = 5
+	cf := NewDefaultConfig()
+	cf.Concurrency = 3
+	cf.KeepLog = true
+	cf.MaxRetries = 5
+	c := New(cf, nil)
 
 	port, err := serverWith429()
 	if err != nil {
@@ -170,10 +175,11 @@ func TestMaxRetriesConcurrentRequestsWith429DefaultClient(t *testing.T) {
 func TestMaxRetriesConcurrentRequestsWith400(t *testing.T) {
 	t.Parallel()
 
-	c := New()
-	c.Concurrency = 3
-	c.KeepLog = true
-	c.MaxRetries = 5
+	cf := NewDefaultConfig()
+	cf.Concurrency = 3
+	cf.KeepLog = true
+	cf.MaxRetries = 5
+	c := New(cf, nil)
 	c.SetRetryOnHTTP429(true)
 
 	port, err := serverWith400()
@@ -203,10 +209,11 @@ func TestMaxRetriesConcurrentRequestsWith400(t *testing.T) {
 func TestMaxRetriesConcurrentRequestsWith429(t *testing.T) {
 	t.Parallel()
 
-	c := New()
-	c.Concurrency = 3
-	c.KeepLog = true
-	c.MaxRetries = 5
+	cf := NewDefaultConfig()
+	cf.Concurrency = 3
+	cf.KeepLog = true
+	cf.MaxRetries = 5
+	c := New(cf, nil)
 	c.SetRetryOnHTTP429(true)
 
 	port, err := serverWith429()
@@ -228,7 +235,7 @@ func TestMaxRetriesConcurrentRequestsWith429(t *testing.T) {
 	// in the event of an error, let's see what the logs were
 	t.Log("\n", c.LogString())
 
-	if got, want := c.LogErrCount(), c.Concurrency*c.MaxRetries; got != want {
+	if got, want := c.LogErrCount(), cf.Concurrency*cf.MaxRetries; got != want {
 		t.Errorf("got %d attempts, want %d", got, want)
 	}
 }
@@ -236,10 +243,11 @@ func TestMaxRetriesConcurrentRequestsWith429(t *testing.T) {
 func TestConcurrent2Retry0(t *testing.T) {
 	t.Parallel()
 
-	c := New()
-	c.Concurrency = 2
-	c.MaxRetries = 0
-	c.KeepLog = true
+	cf := NewDefaultConfig()
+	cf.Concurrency = 2
+	cf.MaxRetries = 0
+	cf.KeepLog = true
+	c := New(cf, nil)
 
 	nonExistantURL := "http://localhost:9000/foo"
 
@@ -252,7 +260,7 @@ func TestConcurrent2Retry0(t *testing.T) {
 	// in the event of an error, let's see what the logs were
 	t.Log("\n", c.LogString())
 
-	if got, want := c.LogErrCount(), c.Concurrency; got != want {
+	if got, want := c.LogErrCount(), cf.Concurrency; got != want {
 		t.Errorf("got %d attempts, want %d", got, want)
 	}
 }
@@ -260,10 +268,11 @@ func TestConcurrent2Retry0(t *testing.T) {
 func TestConcurrent2Retry0for429DefaultClient(t *testing.T) {
 	t.Parallel()
 
-	c := New()
-	c.Concurrency = 2
-	c.MaxRetries = 0
-	c.KeepLog = true
+	cf := NewDefaultConfig()
+	cf.Concurrency = 2
+	cf.MaxRetries = 0
+	cf.KeepLog = true
+	c := New(cf, nil)
 
 	port, err := serverWith429()
 	if err != nil {
@@ -290,10 +299,11 @@ func TestConcurrent2Retry0for429DefaultClient(t *testing.T) {
 func TestConcurrent2Retry0for429(t *testing.T) {
 	t.Parallel()
 
-	c := New()
-	c.Concurrency = 2
-	c.MaxRetries = 0
-	c.KeepLog = true
+	cf := NewDefaultConfig()
+	cf.Concurrency = 2
+	cf.MaxRetries = 0
+	cf.KeepLog = true
+	c := New(cf, nil)
 	c.SetRetryOnHTTP429(true)
 
 	port, err := serverWith429()
@@ -313,7 +323,7 @@ func TestConcurrent2Retry0for429(t *testing.T) {
 	// in the event of an error, let's see what the logs were
 	t.Log("\n", c.LogString())
 
-	if got, want := c.LogErrCount(), c.Concurrency; got != want {
+	if got, want := c.LogErrCount(), cf.Concurrency; got != want {
 		t.Errorf("got %d attempts, want %d", got, want)
 	}
 }
@@ -321,8 +331,9 @@ func TestConcurrent2Retry0for429(t *testing.T) {
 func TestDefaultBackoff(t *testing.T) {
 	t.Parallel()
 
-	c := New()
-	c.KeepLog = true
+	cf := NewDefaultConfig()
+	cf.KeepLog = true
+	c := New(cf, nil)
 
 	nonExistantURL := "http://localhost:9000/foo"
 
@@ -335,16 +346,16 @@ func TestDefaultBackoff(t *testing.T) {
 	// in the event of an error, let's see what the logs were
 	t.Log("\n", c.LogString())
 
-	if got, want := c.Concurrency, 1; got != want {
+	if got, want := cf.Concurrency, 1; got != want {
 		t.Errorf("got %d, want %d for concurrency", got, want)
 	}
 
-	if got, want := c.LogErrCount(), c.MaxRetries; got != want {
+	if got, want := c.LogErrCount(), cf.MaxRetries; got != want {
 		t.Fatalf("got %d errors, want %d", got, want)
 	}
 
 	var startTime int64
-	for i, e := range c.ErrLog {
+	for i, e := range c.GetErrLog() {
 		if i == 0 {
 			startTime = e.Time.Unix()
 			continue
@@ -372,7 +383,7 @@ func TestFormatError(t *testing.T) {
 		Err:     err,
 	}
 
-	c := New()
+	c := New(NewDefaultConfig(), nil)
 	formatted := c.FormatError(e)
 	if strings.Compare(expected, formatted) != 0 {
 		t.Errorf("\nExpected:\n%s\nGot:\n%s", expected, formatted)
@@ -385,16 +396,17 @@ func TestCustomLogHook(t *testing.T) {
 	expectedRetries := 5
 	errorLines := []ErrEntry{}
 
-	c := New()
+	cf := NewDefaultConfig()
 	//c.KeepLog = true
-	c.MaxRetries = expectedRetries
-	c.Backoff = func(_ int) time.Duration {
+	cf.MaxRetries = expectedRetries
+	cf.Backoff = func(_ int) time.Duration {
 		return 10 * time.Microsecond
 	}
 
-	c.LogHook = func(e ErrEntry) {
+	cf.LogHook = func(e ErrEntry) {
 		errorLines = append(errorLines, e)
 	}
+	c := New(cf, nil)
 
 	nonExistantURL := "http://localhost:9000/foo"
 
@@ -415,12 +427,13 @@ func TestDefaultLogHook(t *testing.T) {
 
 	errorLines := 0
 
-	c := New()
+	cf := NewDefaultConfig()
 	//c.KeepLog = true
-	c.MaxRetries = 5
-	c.Backoff = func(_ int) time.Duration {
+	cf.MaxRetries = 5
+	cf.Backoff = func(_ int) time.Duration {
 		return 10 * time.Microsecond
 	}
+	c := New(cf, nil)
 
 	nonExistantURL := "http://localhost:9000/foo"
 
@@ -438,9 +451,10 @@ func TestDefaultLogHook(t *testing.T) {
 
 func TestLinearJitterBackoff(t *testing.T) {
 	t.Parallel()
-	c := New()
-	c.Backoff = LinearJitterBackoff
-	c.KeepLog = true
+	cf := NewDefaultConfig()
+	cf.Backoff = LinearJitterBackoff
+	cf.KeepLog = true
+	c := New(cf, nil)
 
 	nonExistantURL := "http://localhost:9000/foo"
 
@@ -455,7 +469,7 @@ func TestLinearJitterBackoff(t *testing.T) {
 
 	var startTime int64
 	var delta int64
-	for i, e := range c.ErrLog {
+	for i, e := range c.GetErrLog() {
 		switch i {
 		case 0:
 			startTime = e.Time.Unix()
@@ -476,10 +490,11 @@ func TestLinearJitterBackoff(t *testing.T) {
 func TestExponentialBackoff(t *testing.T) {
 	t.Parallel()
 
-	c := New()
-	c.MaxRetries = 4
-	c.Backoff = ExponentialBackoff
-	c.KeepLog = true
+	cf := NewDefaultConfig()
+	cf.MaxRetries = 4
+	cf.Backoff = ExponentialBackoff
+	cf.KeepLog = true
+	c := New(cf, nil)
 
 	nonExistantURL := "http://localhost:9000/foo"
 
@@ -492,13 +507,13 @@ func TestExponentialBackoff(t *testing.T) {
 	// in the event of an error, let's see what the logs were
 	t.Log("\n", c.LogString())
 
-	if got, want := c.LogErrCount(), c.MaxRetries; got != want {
+	if got, want := c.LogErrCount(), cf.MaxRetries; got != want {
 		t.Fatalf("got %d errors, want %d", got, want)
 	}
 
 	var startTime int64
 	var delta int64
-	for i, e := range c.ErrLog {
+	for i, e := range c.GetErrLog() {
 		switch i {
 		case 0:
 			startTime = e.Time.Unix()
@@ -527,8 +542,8 @@ func TestCookiesJarPersistence(t *testing.T) {
 		t.Fatal("Cannot create cookiejar", err)
 	}
 
-	c := New()
-	c.Jar = jar
+	c := New(NewDefaultConfig(), nil)
+	c.(*client).Jar = jar
 
 	url := fmt.Sprintf("http://localhost:%d", port)
 
@@ -555,7 +570,7 @@ func TestEmbeddedClientTimeout(t *testing.T) {
 	hc := http.DefaultClient
 	hc.Timeout = clientTimeout
 
-	c := NewExtendedClient(hc)
+	c := New(NewDefaultConfig(), hc)
 	_, err = c.Get(fmt.Sprintf("http://localhost:%d/", port))
 	if err == nil {
 		t.Error("expected a timeout error, did not get it")
@@ -564,7 +579,7 @@ func TestEmbeddedClientTimeout(t *testing.T) {
 
 func TestConcurrentRequestsNotRacyAndDontLeak_FailedRequest(t *testing.T) {
 	goroStart := runtime.NumGoroutine()
-	c := New()
+	c := New(NewDefaultConfig(), nil)
 	port, err := cookieServer()
 	if err != nil {
 		t.Fatalf("unable to start server %v", err)
@@ -611,7 +626,7 @@ func TestConcurrentRequestsNotRacyAndDontLeak_FailedRequest(t *testing.T) {
 
 func TestConcurrentRequestsNotRacyAndDontLeak_SuccessfulRequest(t *testing.T) {
 	goroStart := runtime.NumGoroutine()
-	c := New()
+	c := New(NewDefaultConfig(), nil)
 	nonExistantURL := "http://localhost:9000/foo"
 	conc := 5
 	errCh := make(chan error, conc)
@@ -669,10 +684,11 @@ func TestRetriesNotAttemptedIfContextIsCancelled(t *testing.T) {
 	}
 	req = req.WithContext(ctx)
 
-	c := New()
-	c.MaxRetries = 10
-	c.KeepLog = true
-	c.Backoff = ExponentialBackoff
+	cf := NewDefaultConfig()
+	cf.MaxRetries = 10
+	cf.KeepLog = true
+	cf.Backoff = ExponentialBackoff
+	c := New(cf, nil)
 
 	//Cancel the context in another routine (eg: user interrupt)
 	go func() {

@@ -4,7 +4,6 @@ package pester
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -14,57 +13,6 @@ import (
 	"sync"
 	"time"
 )
-
-//ErrUnexpectedMethod occurs when an http.Client method is unable to be mapped from a calling method in the pester client
-var ErrUnexpectedMethod = errors.New("unexpected client method, must be one of Do, Get, Head, Post, or PostFrom")
-
-// ErrReadingBody happens when we cannot read the body bytes
-var ErrReadingBody = errors.New("error reading body")
-
-// ErrReadingRequestBody happens when we cannot read the request body bytes
-var ErrReadingRequestBody = errors.New("error reading request body")
-
-// Client wraps the http client and exposes all the functionality of the http.Client.
-// Additionally, Client provides pester specific values for handling resiliency.
-type Client struct {
-	// wrap it to provide access to http built ins
-	hc *http.Client
-
-	Transport     http.RoundTripper
-	CheckRedirect func(req *http.Request, via []*http.Request) error
-	Jar           http.CookieJar
-	Timeout       time.Duration
-
-	// pester specific
-	Concurrency int
-	MaxRetries  int
-	Backoff     BackoffStrategy
-	KeepLog     bool
-	LogHook     LogHook
-
-	SuccessReqNum   int
-	SuccessRetryNum int
-
-	wg *sync.WaitGroup
-
-	sync.Mutex
-	ErrLog         []ErrEntry
-	RetryOnHTTP429 bool
-}
-
-// ErrEntry is used to provide the LogString() data and is populated
-// each time an error happens if KeepLog is set.
-// ErrEntry.Retry is deprecated in favor of ErrEntry.Attempt
-type ErrEntry struct {
-	Time    time.Time
-	Method  string
-	URL     string
-	Verb    string
-	Request int
-	Retry   int
-	Attempt int
-	Err     error
-}
 
 // result simplifies the channel communication for concurrent request handling
 type result struct {
@@ -91,35 +39,10 @@ func init() {
 	random = rand.New(rand.NewSource(time.Now().UnixNano()))
 }
 
-// New constructs a new DefaultClient with sensible default values
-func New() *Client {
-	return &Client{
-		Concurrency:    DefaultClient.Concurrency,
-		MaxRetries:     DefaultClient.MaxRetries,
-		Backoff:        DefaultClient.Backoff,
-		ErrLog:         DefaultClient.ErrLog,
-		wg:             &sync.WaitGroup{},
-		RetryOnHTTP429: false,
-	}
-}
-
-// NewExtendedClient allows you to pass in an http.Client that is previously set up
-// and extends it to have Pester's features of concurrency and retries.
-func NewExtendedClient(hc *http.Client) *Client {
-	c := New()
-	c.hc = hc
-	return c
-}
-
-// LogHook is used to log attempts as they happen. This function is never called,
-// however, if KeepLog is set to true.
-type LogHook func(e ErrEntry)
-
 // BackoffStrategy is used to determine how long a retry request should wait until attempted
 type BackoffStrategy func(retry int) time.Duration
 
-// DefaultClient provides sensible defaults
-var DefaultClient = &Client{Concurrency: 1, MaxRetries: 3, Backoff: DefaultBackoff, ErrLog: []ErrEntry{}}
+var defaultConfig = Config{Concurrency: 1, MaxRetries: 3, Backoff: DefaultBackoff}
 
 // DefaultBackoff always returns 1 second
 func DefaultBackoff(_ int) time.Duration {
@@ -167,12 +90,16 @@ func jitter(i int) time.Duration {
 
 // Wait blocks until all pester requests have returned
 // Probably not that useful outside of testing.
-func (c *Client) Wait() {
+func (c *client) Wait() {
 	c.wg.Wait()
 }
 
+func (c *client) GetConfig() Config {
+	return c.Config
+}
+
 // pester provides all the logic of retries, concurrency, backoff, and logging
-func (c *Client) pester(p params) (*http.Response, error) {
+func (c *client) pester(p params) (*http.Response, error) {
 	resultCh := make(chan result)
 	multiplexCh := make(chan result)
 	finishCh := make(chan struct{})
@@ -357,8 +284,13 @@ func (c *Client) pester(p params) (*http.Response, error) {
 
 }
 
+// Gets the error log for parsing
+func (c *client) GetErrLog() []ErrEntry {
+	return c.ErrLog
+}
+
 // LogString provides a string representation of the errors the client has seen
-func (c *Client) LogString() string {
+func (c *client) LogString() string {
 	c.Lock()
 	defer c.Unlock()
 	var res string
@@ -369,25 +301,25 @@ func (c *Client) LogString() string {
 }
 
 // Format the Error to human readable string
-func (c *Client) FormatError(e ErrEntry) string {
+func (c *client) FormatError(e ErrEntry) string {
 	return fmt.Sprintf("%d %s [%s] %s request-%d retry-%d error: %s\n",
 		e.Time.Unix(), e.Method, e.Verb, e.URL, e.Request, e.Retry, e.Err)
 }
 
 // LogErrCount is a helper method used primarily for test validation
-func (c *Client) LogErrCount() int {
+func (c *client) LogErrCount() int {
 	c.Lock()
 	defer c.Unlock()
 	return len(c.ErrLog)
 }
 
 // EmbedHTTPClient allows you to extend an existing Pester client with an
-// underlying http.Client, such as https://godoc.org/golang.org/x/oauth2/google#DefaultClient
-func (c *Client) EmbedHTTPClient(hc *http.Client) {
+// underlying http.client, such as https://godoc.org/golang.org/x/oauth2/google#DefaultClient
+func (c *client) EmbedHTTPClient(hc *http.Client) {
 	c.hc = hc
 }
 
-func (c *Client) log(e ErrEntry) {
+func (c *client) log(e ErrEntry) {
 	if c.KeepLog {
 		c.Lock()
 		defer c.Unlock()
@@ -399,33 +331,33 @@ func (c *Client) log(e ErrEntry) {
 	}
 }
 
-// Do provides the same functionality as http.Client.Do
-func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
+// Do provides the same functionality as http.client.Do
+func (c *client) Do(req *http.Request) (resp *http.Response, err error) {
 	return c.pester(params{method: "Do", req: req, verb: req.Method, url: req.URL.String()})
 }
 
-// Get provides the same functionality as http.Client.Get
-func (c *Client) Get(url string) (resp *http.Response, err error) {
+// Get provides the same functionality as http.client.Get
+func (c *client) Get(url string) (resp *http.Response, err error) {
 	return c.pester(params{method: "Get", url: url, verb: "GET"})
 }
 
-// Head provides the same functionality as http.Client.Head
-func (c *Client) Head(url string) (resp *http.Response, err error) {
+// Head provides the same functionality as http.client.Head
+func (c *client) Head(url string) (resp *http.Response, err error) {
 	return c.pester(params{method: "Head", url: url, verb: "HEAD"})
 }
 
-// Post provides the same functionality as http.Client.Post
-func (c *Client) Post(url string, bodyType string, body io.Reader) (resp *http.Response, err error) {
+// Post provides the same functionality as http.client.Post
+func (c *client) Post(url string, bodyType string, body io.Reader) (resp *http.Response, err error) {
 	return c.pester(params{method: "Post", url: url, bodyType: bodyType, body: body, verb: "POST"})
 }
 
-// PostForm provides the same functionality as http.Client.PostForm
-func (c *Client) PostForm(url string, data url.Values) (resp *http.Response, err error) {
+// PostForm provides the same functionality as http.client.PostForm
+func (c *client) PostForm(url string, data url.Values) (resp *http.Response, err error) {
 	return c.pester(params{method: "PostForm", url: url, data: data, verb: "POST"})
 }
 
 // set RetryOnHTTP429 for clients,
-func (c *Client) SetRetryOnHTTP429(flag bool) {
+func (c *client) SetRetryOnHTTP429(flag bool) {
 	c.RetryOnHTTP429 = flag
 }
 
@@ -433,32 +365,32 @@ func (c *Client) SetRetryOnHTTP429(flag bool) {
 // Provide self-constructing variants //
 ////////////////////////////////////////
 
-// Do provides the same functionality as http.Client.Do and creates its own constructor
+// Do provides the same functionality as http.client.Do and creates its own constructor
 func Do(req *http.Request) (resp *http.Response, err error) {
-	c := New()
+	c := New(NewDefaultConfig(), nil)
 	return c.Do(req)
 }
 
-// Get provides the same functionality as http.Client.Get and creates its own constructor
+// Get provides the same functionality as http.client.Get and creates its own constructor
 func Get(url string) (resp *http.Response, err error) {
-	c := New()
+	c := New(NewDefaultConfig(), nil)
 	return c.Get(url)
 }
 
-// Head provides the same functionality as http.Client.Head and creates its own constructor
+// Head provides the same functionality as http.client.Head and creates its own constructor
 func Head(url string) (resp *http.Response, err error) {
-	c := New()
+	c := New(NewDefaultConfig(), nil)
 	return c.Head(url)
 }
 
-// Post provides the same functionality as http.Client.Post and creates its own constructor
+// Post provides the same functionality as http.client.Post and creates its own constructor
 func Post(url string, bodyType string, body io.Reader) (resp *http.Response, err error) {
-	c := New()
+	c := New(NewDefaultConfig(), nil)
 	return c.Post(url, bodyType, body)
 }
 
-// PostForm provides the same functionality as http.Client.PostForm and creates its own constructor
+// PostForm provides the same functionality as http.client.PostForm and creates its own constructor
 func PostForm(url string, data url.Values) (resp *http.Response, err error) {
-	c := New()
+	c := New(NewDefaultConfig(), nil)
 	return c.PostForm(url, data)
 }
